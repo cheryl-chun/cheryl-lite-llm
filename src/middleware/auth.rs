@@ -34,5 +34,6 @@ pub async fn auth_middleware(
 
 // TODO: Token 校验
 fn valid_token(token: &str) -> bool {
+    let token = token.trim_start_matches("Bearer ").trim();
     return false;
 }
