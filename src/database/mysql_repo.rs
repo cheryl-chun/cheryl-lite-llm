@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::config::DatabaseConfig;
 use crate::database::builder::DatabaseBuilder;
-use crate::database::{AuthContext, AuthRepository, DatabaseContext, DatabasePool, VirtualKeyRow, mysql_repo};
+use crate::database::{AuthContext, AuthRepository, DatabaseContext, DatabasePool, VirtualKeyRow};
 use crate::error::{ProxyError, Result};
 
 pub struct MySqlRepository {

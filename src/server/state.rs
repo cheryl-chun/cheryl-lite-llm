@@ -1,4 +1,4 @@
-use crate::{database::{AuthRepository, DatabaseContext, DatabaseFactory}, router::Router};
+use crate::{database::{DatabaseContext, DatabaseFactory}, router::Router};
 use crate::config::Config;
 use std::sync::Arc;
 
