@@ -17,6 +17,7 @@ pub fn create_router(app_state: AppState) -> Router {
         .route("/:provider/chat/completions", post(handler::chat_handler))
         .route("/health", get(handler::health_handler))
         .layer(axum::middleware::from_fn_with_state(app_state.clone(), middleware::auth_middleware))
+        .route("/health",get(handler::health_handler))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state)
 }

@@ -11,7 +11,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     // 初始化所有 providers（注册到工厂）
-    init_providers();
+    cheryl_lite_llm::init();
 
     let config_path = "config.toml";
     let config = Config::from_file(config_path).map_err(|e| {
@@ -20,27 +20,15 @@ async fn main() -> anyhow::Result<()> {
         anyhow::anyhow!(e)
     })?;
 
-    let mut router = Router::new();
-
     tracing::info!("Config loaded successfully");
 
-    // 使用工厂创建 providers（工厂从注册表查找）
-    for (provider_type, provider_config) in config.providers.iter() {
-        match ProviderFactory::create(provider_type, provider_config) {
-            Ok(provider) => {
-                router.register(provider);
-                tracing::info!("Registered provider: {}", provider_type);
-            }
-            Err(e) => {
-                tracing::warn!("Failed to create provider {}: {}", provider_type, e);
-            }
-        }
-    }
+    // 从配置构造应用状态（包含所有依赖）
+    let app_state = AppState::from_config(&config).await?;
 
-    let app_state = AppState::new(router);
-
+    // 创建 HTTP 路由器
     let app = create_router(app_state);
 
+    // 绑定地址并启动服务
     let addr = format!("{}:{}", config.server.host, config.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
