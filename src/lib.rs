@@ -7,6 +7,7 @@ pub mod router;
 pub mod server;
 pub mod utils;
 pub mod database;
+pub mod keys;
 
 pub fn init() {
     adapters::init_providers();

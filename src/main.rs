@@ -3,15 +3,70 @@ use cheryl_lite_llm::{
     server::{AppState, create_router},
 };
 use tracing_subscriber;
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "cheryl_lite_llm")]
+#[command(about = "A lightweight LLM gateway")]
+#[command(version)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Server {
+        #[arg(short, long, default_value = "config.toml")]
+        config: String
+    },
+    GenerateMasterKey {
+        /// Expiration in days (0 means never expires)
+        #[arg(short, long, default_value = "0")]
+        expires_in_days: u32,
+
+        #[arg(short, long)]
+        description: Option<String>,
+    },
+    VerifyMaster {
+        key: String,
+        #[arg(short, long)]
+        database_url: String
+    },
+    ListMasters {
+        #[arg(short, long)]
+        database_url: String,
+    }
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Server { config } => {
+            run_server(&config).await?
+        }
+        Commands::GenerateMasterKey { expires_in_days, description } => {
+            anyhow::bail!("GenerateMasterKey not implemented yet");
+        }
+        Commands::VerifyMaster { key, database_url } => {
+            anyhow::bail!("VerifyMaster not implemented yet");
+        }
+        Commands::ListMasters { database_url } => {
+            anyhow::bail!("ListMasters not implemented yet");
+        }
+    }
+
+    Ok(())
+}
+
+async fn run_server(config_path: &str) -> anyhow::Result<()> {
     // 初始化所有 providers（注册到工厂）
     cheryl_lite_llm::init();
 
-    let config_path = "config.toml";
     let config = Config::from_file(config_path).map_err(|e| {
         tracing::error!("Failed to load config {}: {}", config_path, e);
         tracing::error!("Please create config.toml file. See config.example for reference.");
