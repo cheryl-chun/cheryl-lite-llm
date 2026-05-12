@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use uuid::Uuid;
 
 use crate::config::DatabaseConfig;
 use crate::database::builder::DatabaseBuilder;
+use crate::database::models::MasterKey;
+use crate::database::traits::MasterkeyRepository;
 use crate::database::{AuthContext, AuthRepository, DatabaseContext, DatabasePool, VirtualKeyRow};
 use crate::error::{ProxyError, Result};
 
@@ -51,6 +54,29 @@ impl AuthRepository for MySqlRepository {
             }
             None => Ok(None),
         }
+    }
+}
+
+#[async_trait]
+impl MasterkeyRepository for MySqlRepository {
+    async fn find_by_hash(&self, key_hash: &str) -> Result<Option<MasterKey>> {
+        todo!()
+    }
+
+    async fn list_all(&self) -> Result<Vec<MasterKey>> {
+        todo!()
+    }
+
+    async fn create(&self, key: &MasterKey) -> Result<()> {
+        todo!()
+    }
+
+    async fn disable(&self, key_id: &Uuid) -> Result<()> {
+        todo!()
+    }
+
+    async fn enable(&self, key_id: &Uuid) -> Result<()> {
+        todo!()
     }
 }
 
