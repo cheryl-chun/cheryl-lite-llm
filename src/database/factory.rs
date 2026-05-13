@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::{Arc, RwLock}};
 use once_cell::sync::Lazy;
 use anyhow::{Result, anyhow};
 
-use crate::{config::DatabaseConfig, database::{DatabaseContext, builder::DatabaseBuilder}};
+use crate::{config::DatabaseConfig, database::{DatabaseContext, DatabasePool, builder::DatabaseBuilder}};
 
 static REGISTRY: Lazy<RwLock<HashMap<String, Arc<dyn DatabaseBuilder>>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
@@ -39,5 +39,20 @@ impl DatabaseFactory {
     pub fn list_db_types() -> Vec<String> {
         let registry = REGISTRY.read().unwrap();
         registry.keys().cloned().collect()
+    }
+
+    pub async fn create_pool_from_url(url: &str) -> anyhow::Result<DatabasePool> {
+        let db_type = Self::parse_db_type(url)?;
+        let registry = REGISTRY.read().unwrap();
+
+        let builder = registry.get(&db_type)
+        .ok_or_else(|| anyhow!("Unsupported database type: {}", db_type))?;
+
+        let config = DatabaseConfig {
+            url: url.to_string(),
+            max_connections: 10,
+        };
+
+        builder.create_pool(&config).await
     }
 }

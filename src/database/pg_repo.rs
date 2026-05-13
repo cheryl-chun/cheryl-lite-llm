@@ -9,14 +9,25 @@ use crate::database::models::{MasterKey, MasterKeyRow};
 use crate::database::traits::{MasterKeyRepository, VirtualKeyRepository};
 use crate::database::{VirtualAuthContext, DatabaseContext, DatabasePool, VirtualKeyRow};
 use crate::error::{ProxyError, Result};
+pub struct PgDatabaseBuilder;
 
-pub struct PgRepository {
+pub struct PgVirtualKeyRepository {
     pool: sqlx::PgPool,
 }
 
-pub struct PgDatabaseBuilder;
+impl PgVirtualKeyRepository {
+    pub fn new(pool: sqlx::PgPool) -> Self {
+        Self {
+            pool
+        }
+    }
+}
 
-impl PgRepository {
+pub struct PgMasterKeyRepository {
+    pool: sqlx::PgPool,
+}
+
+impl PgMasterKeyRepository {
     pub fn new(pool: sqlx::PgPool) -> Self {
         Self {
             pool
@@ -25,7 +36,7 @@ impl PgRepository {
 }
 
 #[async_trait]
-impl VirtualKeyRepository for PgRepository {
+impl VirtualKeyRepository for PgVirtualKeyRepository {
     async fn find_by_hash(&self, key_hash: &str) -> Result<Option<VirtualAuthContext>> {
         let row = sqlx::query_as::<_, VirtualKeyRow>(
             r#"
@@ -170,7 +181,7 @@ impl VirtualKeyRepository for PgRepository {
 }
 
 #[async_trait]
-impl MasterKeyRepository for PgRepository {
+impl MasterKeyRepository for PgMasterKeyRepository {
     async fn find_by_hash(&self, key_hash: &str) -> Result<Option<MasterKey>> {
         let row = sqlx::query_as::<_, MasterKeyRow>(
             r#"
@@ -299,10 +310,9 @@ impl DatabaseBuilder for PgDatabaseBuilder {
 
         let (virtual_key_repo, master_key_repo) = match &pool {
             DatabasePool::Postgres(pg_pool) => {
-                let repo = Arc::new(PgRepository::new(pg_pool.clone()));
-                let virtual_repo: Arc<dyn VirtualKeyRepository> = repo.clone();
-                let master_repo: Arc<dyn MasterKeyRepository> = repo;
-                (virtual_repo, master_repo)
+                let virtual_key_repo = Arc::new(PgVirtualKeyRepository::new(pg_pool.clone()));
+                let master_key_repo = Arc::new(PgMasterKeyRepository::new(pg_pool.clone()));
+                (virtual_key_repo, master_key_repo)
             }
             _ => unreachable!("Expected PostgreSQL pool"),
         };

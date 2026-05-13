@@ -1,9 +1,9 @@
 use cheryl_lite_llm::{
-    config::Config,
-    server::{AppState, create_router},
+    clis::{disable_master_key, enabled_master_key, generate_master_key}, config::Config, server::{AppState, create_router}
 };
-use tracing_subscriber;
 use clap::{Parser, Subcommand};
+use tracing_subscriber;
+use uuid::Uuid;
 
 #[derive(Parser)]
 #[command(name = "cheryl_lite_llm")]
@@ -11,14 +11,14 @@ use clap::{Parser, Subcommand};
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands
+    command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
     Server {
         #[arg(short, long, default_value = "config.toml")]
-        config: String
+        config: String,
     },
     GenerateMasterKey {
         /// Expiration in days (0 means never expires)
@@ -27,30 +27,69 @@ enum Commands {
 
         #[arg(short, long)]
         description: Option<String>,
+
+        #[arg(short, long)]
+        config: Option<String>,
+
+        #[arg(short = 'u', long)]
+        database_url: Option<String>,
+    },
+    DisableMaster {
+        #[arg(short, long)]
+        id: Uuid,
+
+        #[arg(short, long)]
+        config: Option<String>,
+
+        #[arg(short = 'u', long)]
+        database_url: Option<String>,
+    },
+    EnableMaster {
+        #[arg(short, long)]
+        id: Uuid,
+
+        #[arg(short, long)]
+        config: Option<String>,
+
+        #[arg(short = 'u', long)]
+        database_url: Option<String>,
     },
     VerifyMaster {
         key: String,
         #[arg(short, long)]
-        database_url: String
+        database_url: String,
     },
     ListMasters {
         #[arg(short, long)]
         database_url: String,
-    }
+    },
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
+    cheryl_lite_llm::init();
+
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Server { config } => {
-            run_server(&config).await?
+        Commands::Server { config } => run_server(&config).await?,
+        Commands::GenerateMasterKey {
+            expires_in_days,
+            description,
+            config,
+            database_url,
+        } => {
+            generate_master_key(expires_in_days, description, config, database_url).await?;
         }
-        Commands::GenerateMasterKey { expires_in_days, description } => {
-            anyhow::bail!("GenerateMasterKey not implemented yet");
+        Commands::DisableMaster {
+            id, config, database_url
+        } => {
+            disable_master_key(id, config, database_url).await?;
+        }
+        Commands::EnableMaster { id, config, database_url } => {
+            enabled_master_key(id, config, database_url).await?;
         }
         Commands::VerifyMaster { key, database_url } => {
             anyhow::bail!("VerifyMaster not implemented yet");
@@ -64,9 +103,6 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn run_server(config_path: &str) -> anyhow::Result<()> {
-    // 初始化所有 providers（注册到工厂）
-    cheryl_lite_llm::init();
-
     let config = Config::from_file(config_path).map_err(|e| {
         tracing::error!("Failed to load config {}: {}", config_path, e);
         tracing::error!("Please create config.toml file. See config.example for reference.");

@@ -11,7 +11,7 @@ pub use models::{
     VirtualKey, VirtualKeyRow, VirtualAuthContext,
 };
 pub use traits::{VirtualKeyRepository, MasterKeyRepository};
-pub use pg_repo::PgRepository;
+pub use pg_repo::{PgMasterKeyRepository, PgVirtualKeyRepository};
 pub use mysql_repo::{MySqlVirtualKeyRepository, MySqlMasterKeyRepository};
 pub use context::{DatabaseContext, DatabasePool};
 pub use factory::{DatabaseFactory};
