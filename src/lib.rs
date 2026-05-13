@@ -6,3 +6,11 @@ pub mod models;
 pub mod router;
 pub mod server;
 pub mod utils;
+pub mod database;
+pub mod keys;
+pub mod clis;
+
+pub fn init() {
+    adapters::init_providers();
+    database::init_repositories();
+}

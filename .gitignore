@@ -1,0 +1,32 @@
+# Rust 构建输出
+/target/
+**/*.rs.bk
+
+# Cargo 配置文件
+/Cargo.lock
+.cargo/
+# IDE / 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试和临时文件
+*.log
+*.tmp
+*.bak
+
+# 数据库或本地环境文件
+db.sql
+
+# Shell 脚本缓存 / 临时文件
+test.sh~
+
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
+
+# 环境配置文件（如果不想提交）
+config.toml
+
+/test/

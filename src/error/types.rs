@@ -22,6 +22,9 @@ pub enum ProxyError {
 
     #[error("Unknown error: {0}")]
     Unknown(String),
+
+    #[error("Database error: {0}")]
+    Database(String),
 }
 
 impl axum::response::IntoResponse for ProxyError {

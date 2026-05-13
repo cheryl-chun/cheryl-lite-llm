@@ -1,4 +1,5 @@
-use crate::adapters::LLMProvider;
+use crate::adapters::{LLMProvider, ProviderFactory};
+use crate::config::Config;
 use crate::error::{ProxyError, Result};
 use crate::models::{ChatRequest, ChatResponse};
 use std::collections::HashMap;
@@ -14,6 +15,27 @@ impl Router {
         Self {
             providers: HashMap::new(),
         }
+    }
+
+    pub fn from_config(config: &Config) -> anyhow::Result<Self> {
+        let mut router = Self::new();
+        for (provider_type, provider_config) in config.providers.iter() {
+            match ProviderFactory::create(provider_type, provider_config) {
+                Ok(provider) => {
+                    router.register(provider);
+                    tracing::info!("Registered provider: {}", provider_type);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to create provider {}: {}", provider_type, e);
+                }
+            }
+        }
+
+        if router.providers.is_empty() {
+            return Err(anyhow::anyhow!("No providers registered"));
+        }
+
+        Ok(router)
     }
 
     // 注册一个 provider
