@@ -12,7 +12,7 @@ pub use models::{
 };
 pub use traits::{VirtualKeyRepository, MasterKeyRepository};
 pub use pg_repo::PgRepository;
-pub use mysql_repo::MySqlRepository;
+pub use mysql_repo::{MySqlVirtualKeyRepository, MySqlMasterKeyRepository};
 pub use context::{DatabaseContext, DatabasePool};
 pub use factory::{DatabaseFactory};
 

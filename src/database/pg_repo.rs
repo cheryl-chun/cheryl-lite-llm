@@ -60,23 +60,112 @@ impl VirtualKeyRepository for PgRepository {
     }
 
     async fn list_all(&self) -> Result<Vec<crate::database::models::VirtualKey>> {
-        todo!("Implement create for VirtualKeyRepository")
+        let rows = sqlx::query_as::<_, VirtualKeyRow>(
+            r#"
+            SELECT id, key_hash, enabled, expires_at, models, user_id, team_id, created_by, description, created_at, last_used_at
+            FROM virtual_keys
+            ORDER BY created_at DESC
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to list virtual keys: {}", e)))?;
+
+        let mut keys = Vec::new();
+        for row in rows {
+            let id = Uuid::parse_str(&row.id)
+                .map_err(|e| ProxyError::Database(format!("Invalid UUID: {}", e)))?;
+            let models = serde_json::from_value(row.models).unwrap_or_default();
+            let created_by = Uuid::parse_str(&row.created_by)
+                .map_err(|e| ProxyError::Database(format!("Invalid masterKey UUID: {}", e)))?;
+
+            keys.push(crate::database::models::VirtualKey {
+                id,
+                key_hash: row.key_hash,
+                enabled: row.enabled,
+                expires_at: row.expires_at,
+                models,
+                user_id: row.user_id,
+                team_id: row.team_id,
+                created_by,
+                description: row.description,
+                created_at: row.created_at,
+                last_used_at: row.last_used_at,
+            });
+        }
+
+        Ok(keys)
     }
 
-    async fn create(&self, _key: &crate::database::models::VirtualKey) -> Result<()> {
-        todo!("Implement create for VirtualKeyRepository")
+    async fn create(&self, key: &crate::database::models::VirtualKey) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO virtual_keys (id, key_hash, enabled, expires_at, models, user_id, team_id, created_by, description, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            "#
+        )
+        .bind(key.id.to_string())
+        .bind(&key.key_hash)
+        .bind(key.enabled)
+        .bind(key.expires_at)
+        .bind(serde_json::to_value(&key.models).unwrap())
+        .bind(&key.user_id)
+        .bind(&key.team_id)
+        .bind(key.created_by.to_string())
+        .bind(&key.description)
+        .bind(key.created_at)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to create virtual key: {}", e)))?;
+
+        Ok(())
     }
 
-    async fn disable(&self, _key_id: &Uuid) -> Result<()> {
-        todo!("Implement disable for VirtualKeyRepository")
+    async fn disable(&self, key_id: &Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE virtual_keys
+            SET enabled = false
+            WHERE id = $1
+            "#
+        )
+        .bind(key_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to disable virtual key: {}", e)))?;
+
+        Ok(())
     }
 
-    async fn enable(&self, _key_id: &Uuid) -> Result<()> {
-        todo!("Implement enable for VirtualKeyRepository")
+    async fn enable(&self, key_id: &Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE virtual_keys
+            SET enabled = true
+            WHERE id = $1
+            "#
+        )
+        .bind(key_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to enable virtual key: {}", e)))?;
+
+        Ok(())
     }
 
-    async fn delete(&self, _key_id: &Uuid) -> Result<()> {
-        todo!("Implement delete for VirtualKeyRepository")
+    async fn delete(&self, key_id: &Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM virtual_keys
+            WHERE id = $1
+            "#
+        )
+        .bind(key_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to delete virtual key: {}", e)))?;
+
+        Ok(())
     }
 }
 

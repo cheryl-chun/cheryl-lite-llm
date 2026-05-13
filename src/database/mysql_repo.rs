@@ -7,29 +7,39 @@ use crate::config::DatabaseConfig;
 use crate::database::builder::DatabaseBuilder;
 use crate::database::models::{MasterKey, MasterKeyRow};
 use crate::database::traits::{MasterKeyRepository, VirtualKeyRepository};
-use crate::database::{VirtualAuthContext, DatabaseContext, DatabasePool, VirtualKeyRow};
+use crate::database::{
+    DatabaseContext, DatabasePool, VirtualAuthContext, VirtualKey, VirtualKeyRow,
+};
 use crate::error::{ProxyError, Result};
-
-pub struct MySqlRepository {
-    pool: sqlx::MySqlPool,
-}
 
 pub struct MySqlDatabaseBuilder;
 
-impl MySqlRepository {
+pub struct MySqlMasterKeyRepository {
+    pool: sqlx::MySqlPool,
+}
+
+pub struct MySqlVirtualKeyRepository {
+    pool: sqlx::MySqlPool,
+}
+
+impl MySqlVirtualKeyRepository {
     pub fn new(pool: sqlx::MySqlPool) -> Self {
-        Self {
-            pool,
-        }
+        Self { pool }
+    }
+}
+
+impl MySqlMasterKeyRepository {
+    pub fn new(pool: sqlx::MySqlPool) -> Self {
+        Self { pool }
     }
 }
 
 #[async_trait]
-impl VirtualKeyRepository for MySqlRepository {
+impl VirtualKeyRepository for MySqlVirtualKeyRepository {
     async fn find_by_hash(&self, key_hash: &str) -> Result<Option<VirtualAuthContext>> {
         let row = sqlx::query_as::<_, VirtualKeyRow>(
             r#"
-            SELECT id, key_hash, enabled, expires_at, models, user_id, team_id
+            SELECT id, key_hash, enabled, expires_at, models, user_id, team_id, created_by, description, created_at, last_used_at
             FROM virtual_keys
             WHERE key_hash = ?
             "#,
@@ -60,28 +70,120 @@ impl VirtualKeyRepository for MySqlRepository {
     }
 
     async fn list_all(&self) -> Result<Vec<crate::database::models::VirtualKey>> {
-        todo!("Implement list_all for VirtualKeyRepository")
+        let rows = sqlx::query_as::<_, VirtualKeyRow>(
+            r#"
+            SELECT id, key_hash, enabled, expires_at, models, user_id, team_id, created_by, description, created_at, last_used_at
+            FROM virtual_keys
+            ORDER BY created_at DESC
+            "#
+        ).fetch_all(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to list virtual keys: {}", e)))?;
+
+        let mut keys = Vec::new();
+        for row in rows {
+            let id = Uuid::parse_str(&row.id)
+                .map_err(|e| ProxyError::Database(format!("Invalid UUID: {}", e)))?;
+            let models = serde_json::from_value(row.models).unwrap_or_default();
+            let created_by = Uuid::parse_str(&row.created_by)
+                .map_err(|e| ProxyError::Database(format!("Invalid masterKey UUID: {}", e)))?;
+
+            keys.push(VirtualKey {
+                id,
+                key_hash: row.key_hash,
+                enabled: row.enabled,
+                expires_at: row.expires_at,
+                models,
+                user_id: row.user_id,
+                team_id: row.team_id,
+                created_by,
+                description: row.description,
+                created_at: row.created_at,
+                last_used_at: row.last_used_at,
+            });
+        }
+
+        Ok(keys)
     }
 
-    async fn create(&self, _key: &crate::database::models::VirtualKey) -> Result<()> {
-        todo!("Implement create for VirtualKeyRepository")
+    async fn create(&self, key: &crate::database::models::VirtualKey) -> Result<()> {
+        let model_json = serde_json::to_value(&key.models)
+        .map_err(|e| ProxyError::Database(format!("JSON error: {}", e)))?;
+
+        println!("model_json: {}", model_json);
+        sqlx::query(
+            r#"
+            INSERT INTO virtual_keys (id, key_hash, enabled, expires_at, models, user_id, team_id, created_by, description, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(key.id.to_string())
+        .bind(&key.key_hash)
+        .bind(key.enabled)
+        .bind(key.expires_at)
+        .bind(model_json)
+        .bind(&key.user_id)
+        .bind(&key.team_id)
+        .bind(key.created_by.to_string())
+        .bind(&key.description)
+        .bind(key.created_at)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to create virtual key: {}", e)))?;
+
+        Ok(())
     }
 
-    async fn disable(&self, _key_id: &Uuid) -> Result<()> {
-        todo!("Implement disable for VirtualKeyRepository")
+    async fn disable(&self, key_id: &Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE virtual_keys
+            SET enabled = false
+            where id = ?
+            "#,
+        )
+        .bind(key_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to disable virtual key: {}", e)))?;
+
+        Ok(())
     }
 
-    async fn enable(&self, _key_id: &Uuid) -> Result<()> {
-        todo!("Implement enable for VirtualKeyRepository")
+    async fn enable(&self, key_id: &Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE virtual_keys
+            SET enabled = true
+            WHERE id = ?
+            "#,
+        )
+        .bind(key_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to enable virtual key: {}", e)))?;
+
+        Ok(())
     }
 
-    async fn delete(&self, _key_id: &Uuid) -> Result<()> {
-        todo!("Implement delete for VirtualKeyRepository")
+    async fn delete(&self, key_id: &Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM virtual_keys
+            WHERE id = ?
+            "#,
+        )
+        .bind(key_id.to_string())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to delete virtual key: {}", e)))?;
+
+        Ok(())
     }
 }
 
 #[async_trait]
-impl MasterKeyRepository for MySqlRepository {
+impl MasterKeyRepository for MySqlMasterKeyRepository {
     async fn find_by_hash(&self, key_hash: &str) -> Result<Option<MasterKey>> {
         let row = sqlx::query_as::<_, MasterKeyRow>(
             r#"
@@ -210,15 +312,20 @@ impl DatabaseBuilder for MySqlDatabaseBuilder {
 
         let (virtual_key_repo, master_key_repo) = match &pool {
             DatabasePool::MySql(mysql_pool) => {
-                let repo = Arc::new(MySqlRepository::new(mysql_pool.clone()));
-                let virtual_repo: Arc<dyn VirtualKeyRepository> = repo.clone();
-                let master_repo: Arc<dyn MasterKeyRepository> = repo;
+                let virtual_repo: Arc<dyn VirtualKeyRepository> =
+                    Arc::new(MySqlVirtualKeyRepository::new(mysql_pool.clone()));
+                let master_repo: Arc<dyn MasterKeyRepository> =
+                    Arc::new(MySqlMasterKeyRepository::new(mysql_pool.clone()));
                 (virtual_repo, master_repo)
             }
             _ => unreachable!(),
         };
 
-        Ok(DatabaseContext::new(pool, virtual_key_repo, master_key_repo))
+        Ok(DatabaseContext::new(
+            pool,
+            virtual_key_repo,
+            master_key_repo,
+        ))
     }
 }
 
