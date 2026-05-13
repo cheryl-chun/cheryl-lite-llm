@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{config::Config, database::{DatabaseFactory, DatabasePool, MasterKey, MasterKeyRepository, MySqlMasterKeyRepository, PgMasterKeyRepository}};
+use crate::{config::Config, database::{DatabaseFactory, DatabasePool, MasterKeyRepository, MySqlMasterKeyRepository, PgMasterKeyRepository}};
 
 pub async fn enabled_master_key(
     id: uuid::Uuid,

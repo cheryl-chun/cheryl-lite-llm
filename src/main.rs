@@ -1,5 +1,5 @@
 use cheryl_lite_llm::{
-    clis::{disable_master_key, enabled_master_key, generate_master_key}, config::Config, server::{AppState, create_router}
+    clis::{disable_master_key, enabled_master_key, generate_master_key, list_master_key}, config::Config, server::{AppState, create_router}
 };
 use clap::{Parser, Subcommand};
 use tracing_subscriber;
@@ -54,14 +54,11 @@ enum Commands {
         #[arg(short = 'u', long)]
         database_url: Option<String>,
     },
-    VerifyMaster {
-        key: String,
-        #[arg(short, long)]
-        database_url: String,
-    },
     ListMasters {
         #[arg(short, long)]
-        database_url: String,
+        config: Option<String>,
+        #[arg(short, long)]
+        database_url: Option<String>,
     },
 }
 
@@ -91,11 +88,8 @@ async fn main() -> anyhow::Result<()> {
         Commands::EnableMaster { id, config, database_url } => {
             enabled_master_key(id, config, database_url).await?;
         }
-        Commands::VerifyMaster { key, database_url } => {
-            anyhow::bail!("VerifyMaster not implemented yet");
-        }
-        Commands::ListMasters { database_url } => {
-            anyhow::bail!("ListMasters not implemented yet");
+        Commands::ListMasters {database_url, config } => {
+            list_master_key(config, database_url).await?;
         }
     }
 
