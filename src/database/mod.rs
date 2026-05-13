@@ -6,8 +6,11 @@ mod builder;
 mod context;
 mod factory;
 
-pub use models::{AuthContext, VirtualKeyRow};
-pub use traits::AuthRepository;
+pub use models::{
+    MasterKey, MasterKeyRow, MasterAuthContext,
+    VirtualKey, VirtualKeyRow, VirtualAuthContext,
+};
+pub use traits::{VirtualKeyRepository, MasterKeyRepository};
 pub use pg_repo::PgRepository;
 pub use mysql_repo::MySqlRepository;
 pub use context::{DatabaseContext, DatabasePool};

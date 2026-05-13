@@ -1,11 +1,12 @@
 use std::sync::Arc;
-use crate::database::{AuthRepository};
+use crate::database::traits::{VirtualKeyRepository, MasterKeyRepository};
 
 #[derive(Clone)]
 pub struct DatabaseContext {
     pool: DatabasePool,
 
-    pub auth_repo: Arc<dyn AuthRepository>,
+    pub virtual_key_repo: Arc<dyn VirtualKeyRepository>,
+    pub master_key_repo: Arc<dyn MasterKeyRepository>,
 }
 
 #[derive(Clone)]
@@ -17,11 +18,13 @@ pub enum DatabasePool {
 impl DatabaseContext {
     pub fn new(
         pool: DatabasePool,
-        auth_repo: Arc<dyn AuthRepository>,
+        virtual_key_repo: Arc<dyn VirtualKeyRepository>,
+        master_key_repo: Arc<dyn MasterKeyRepository>,
     ) -> Self {
         Self {
             pool,
-            auth_repo,
+            virtual_key_repo,
+            master_key_repo,
         }
     }
 
