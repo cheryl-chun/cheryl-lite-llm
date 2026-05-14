@@ -1,5 +1,6 @@
 mod handler;
 mod state;
+mod request;
 
 use axum::{
     Router,
@@ -9,6 +10,7 @@ use axum::{
 use tower_http::trace::TraceLayer;
 
 pub use state::AppState;
+pub use request::*;
 
 use crate::middleware::{master_auth_middleware, virtual_auth_middleware};
 
@@ -26,6 +28,7 @@ pub fn create_router(app_state: AppState) -> Router {
         .route("/admin/keys/:key_id", get(handler::get_virtual_key_handler))
         .route("/admin/keys/:key_id/revoke", post(handler::revoke_virtual_key_handler))
         .route("/admin/keys/:key_id", delete(handler::delete_virtual_key_handler))
+        .route("/admin/keys/by-user/:user_id", get(handler::get_keys_by_user_handler))
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
             master_auth_middleware,

@@ -11,6 +11,12 @@ pub trait VirtualKeyRepository: Send + Sync {
     /// 根据 key hash 查找并验证 Virtual Key
     async fn find_by_hash(&self, key_hash: &str) -> Result<Option<VirtualAuthContext>>;
 
+    /// 根据 key_id 查找
+    async fn find_by_id(&self, key_id: &Uuid) -> Result<Option<VirtualKey>>;
+
+    /// 根据 user_id 过滤
+    async fn find_by_user_id(&self, user_id: &str) -> Result<Vec<VirtualKey>>;
+
     /// 列出所有 Virtual Keys
     async fn list_all(&self) -> Result<Vec<VirtualKey>>;
 
