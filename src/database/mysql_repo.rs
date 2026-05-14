@@ -69,6 +69,86 @@ impl VirtualKeyRepository for MySqlVirtualKeyRepository {
         }
     }
 
+    async fn find_by_id(&self, key_id: &Uuid) -> Result<Option<VirtualKey>> {
+        let row = sqlx::query_as::<_, VirtualKeyRow>(
+            r#"
+            SELECT id, key_hash, enabled, expires_at, models, user_id, team_id, created_by, description, created_at, last_used_at
+            FROM virtual_keys
+            WHERE key_id = ?
+            "#
+        )
+        .bind(key_id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to query virtual key: {}", e)))?;
+
+        match row {
+            Some(row) => {
+                let id = Uuid::parse_str(&row.id)
+                    .map_err(|e| ProxyError::Database(format!("Invalid UUID: {}", e)))?;
+                let models = serde_json::from_value(row.models).unwrap_or_default();
+                let created_by = Uuid::parse_str(&row.created_by)
+                    .map_err(|e| ProxyError::Database(format!("Invalid UUID: {}", e)))?;
+
+                Ok(Some(VirtualKey {
+                    id, 
+                    key_hash: row.key_hash,
+                    enabled: row.enabled,
+                    expires_at: row.expires_at,
+                    models,
+                    user_id: row.user_id,
+                    team_id: row.team_id,
+                    created_by,
+                    description: row.description,
+                    created_at: row.created_at,
+                    last_used_at: row.last_used_at,
+                }))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn find_by_user_id(&self, user_id: &str) -> Result<Vec<VirtualKey>> {
+        let rows = sqlx::query_as::<_, VirtualKeyRow>(
+            r#"
+            SELECT id, key_hash, enabled, expires_at, models, user_id, team_id,
+                   created_by, description, created_at, last_used_at
+            FROM virtual_keys
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| ProxyError::Database(format!("Failed to query virtual keys: {}", e)))?;
+
+        let mut keys = Vec::new();
+        for row in rows {
+            let id = Uuid::parse_str(&row.id)
+                .map_err(|e| ProxyError::Database(format!("Invalid UUID: {}", e)))?;
+            let models = serde_json::from_value(row.models).unwrap_or_default();
+            let created_by = Uuid::parse_str(&row.created_by)
+                .map_err(|e| ProxyError::Database(format!("Invalid UUID: {}", e)))?;
+
+            keys.push(VirtualKey {
+                id,
+                key_hash: row.key_hash,
+                enabled: row.enabled,
+                expires_at: row.expires_at,
+                models,
+                user_id: row.user_id,
+                team_id: row.team_id,
+                created_by,
+                description: row.description,
+                created_at: row.created_at,
+                last_used_at: row.last_used_at,
+            });
+        }
+
+        Ok(keys)
+    }
+
     async fn list_all(&self) -> Result<Vec<crate::database::models::VirtualKey>> {
         let rows = sqlx::query_as::<_, VirtualKeyRow>(
             r#"
