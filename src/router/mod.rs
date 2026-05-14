@@ -1,3 +1,6 @@
+use axum::body::Body;
+use axum::response::Response;
+
 use crate::adapters::{LLMProvider, ProviderFactory};
 use crate::config::Config;
 use crate::error::{ProxyError, Result};
@@ -54,5 +57,10 @@ impl Router {
     pub async fn chat(&self, provider_name: &str, request: ChatRequest) -> Result<ChatResponse> {
         let provider = self.find_provider(provider_name)?;
         provider.chat(request).await
+    }
+
+    pub async fn chat_stream(&self, provider_name: &str, request: ChatRequest) -> Result<Body> {
+        let provider = self.find_provider(provider_name)?;
+        provider.chat_stream(request).await
     }
 }

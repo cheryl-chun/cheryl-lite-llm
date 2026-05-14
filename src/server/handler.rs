@@ -1,10 +1,14 @@
+use std::os::windows::process;
+
 use crate::database::{MasterAuthContext, VirtualAuthContext, VirtualKey};
 use crate::error::{ProxyError, Result};
 use crate::models::{ChatRequest, ChatResponse};
 use crate::server::state::AppState;
 use crate::server::{
-    CreateVirtualKeyRequest, CreateVirtualKeyResponse, GetKeysByUserResponse, GetVirtualKeyResponse, ListVirtualKeyResponse, VirtualKeyInfo
+    CreateVirtualKeyRequest, CreateVirtualKeyResponse, GetKeysByUserResponse,
+    GetVirtualKeyResponse, ListVirtualKeyResponse, VirtualKeyInfo,
 };
+use axum::response::Response;
 use axum::{
     extract::{Extension, Json, Path, State},
     http::StatusCode,
@@ -46,6 +50,41 @@ pub async fn chat_handler(
     );
 
     Ok(Json(response))
+}
+
+pub async fn chat_stream_handler(
+    Path(provider): Path<String>,
+    State(state): State<AppState>,
+    Extension(auth_ctx): Extension<VirtualAuthContext>,
+    Json(request): Json<ChatRequest>,
+) -> Result<Response> {
+    if !auth_ctx.models.is_empty()
+        && !auth_ctx.models.contains(&"*".to_string())
+        && !auth_ctx.models.contains(&request.model)
+    {
+        return Err(ProxyError::Auth(format!(
+            "Model '{}' not allowed for this API key",
+            request.model
+        )));
+    }
+
+    let model = request.model.clone();
+
+    tracing::info!(
+        "Streaming request: provider={}, model={}, user_id={:?}",
+        provider,
+        model,
+        auth_ctx.user_id
+    );
+
+    let body = state.router.chat_stream(&provider, request).await?;
+
+    Ok(Response::builder().status(StatusCode::OK)
+        .header("Content-Type", "text/event-stream")
+        .header("Cache-Control", "no-cache")
+        .header("Connection", "keep-alive")
+        .body(body)
+        .unwrap())
 }
 
 // ============= Admin API Handlers（需要 Master Key）=============

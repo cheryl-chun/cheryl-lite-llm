@@ -1,10 +1,15 @@
+use std::pin::Pin;
 use std::sync::Arc;
 
-use crate::adapters::LLMProvider;
+use futures_util::StreamExt;
+
+use crate::adapters::{EventStream, LLMProvider};
 use crate::adapters::builder::ProviderBuilder;
 use crate::error::{ProxyError, Result};
 use crate::models::{ChatRequest, ChatResponse};
 use async_trait::async_trait;
+use axum::body::{Body, Bytes};
+use axum::response::sse::Event;
 use reqwest::Client;
 
 pub struct BaseProvider {
@@ -82,6 +87,35 @@ impl LLMProvider for BaseProvider {
 
         let chat_response: ChatResponse = response.json().await?;
         Ok(chat_response)
+    }
+
+    async fn chat_stream(&self, request: ChatRequest) -> Result<Body> {
+        let mut request_body = request;
+        request_body.stream = Some(true);
+
+        let url = format!("{}/chat/completions", self.base_url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request_body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(ProxyError::Provider(format!(
+                "{} API error ({}): {}", self.name, status, error_text
+            )));
+        }
+
+        let stream = response.bytes_stream();
+        Ok(Body::from_stream(stream))
     }
 
     fn name(&self) -> &str {

@@ -37,6 +37,7 @@ pub fn create_router(app_state: AppState) -> Router {
     // 2. LLM 路由组（需要 Virtual Key）
     let llm_routes = Router::new()
         .route("/:provider/chat/completions", post(handler::chat_handler))
+        .route("/:provider/chat/completions/stream", post(handler::chat_stream_handler))
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
             virtual_auth_middleware,
