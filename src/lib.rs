@@ -9,6 +9,8 @@ pub mod utils;
 pub mod database;
 pub mod keys;
 pub mod clis;
+pub mod ratelimit;
+pub mod redis;
 
 pub fn init() {
     adapters::init_providers();
