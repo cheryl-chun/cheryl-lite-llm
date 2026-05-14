@@ -381,8 +381,8 @@ cargo test
 - [x] 数据库抽象层（MySQL/PostgreSQL）
 - [x] CLI 工具（Master Key 管理）
 - [x] 数据库集成测试
-- [ ] Admin API 实现（Virtual Key CRUD）
-- [ ] 流式响应支持
+- [x] Admin API 实现（Virtual Key CRUD）
+- [x] 流式响应支持
 - [ ] 请求限流和配额
 - [ ] 完整的监控指标（Prometheus）
 - [ ] Admin Web UI
